@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EDL → YouTube Timestamp Converter</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;900&family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+
+  :root{
+    --bg-deep:#07080c;
+    --bg-panel:#0c0e14;
+    --bg-card:#10131b;
+    --border:#1a1e2e;
+    --border-glow:#2a3050;
+    --cyan:#00f0ff;
+    --cyan-dim:#00a0aa;
+    --magenta:#ff00aa;
+    --amber:#ffaa00;
+    --red:#ff3355;
+    --green:#00ff88;
+    --blue:#4488ff;
+    --text-primary:#e0e4f0;
+    --text-secondary:#7880a0;
+    --text-dim:#404860;
+    --glow-cyan:0 0 20px rgba(0,240,255,.15),0 0 60px rgba(0,240,255,.05);
+    --glow-magenta:0 0 20px rgba(255,0,170,.15),0 0 60px rgba(255,0,170,.05);
+  }
+
+  html{font-size:16px;scroll-behavior:smooth}
+
+  body{
+    background:var(--bg-deep);
+    color:var(--text-primary);
+    font-family:'Rajdhani',sans-serif;
+    font-weight:400;
+    min-height:100vh;
+    overflow-x:hidden;
+    position:relative;
+  }
+
+  /* Animated grid background */
+  body::before{
+    content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:
+      linear-gradient(rgba(0,240,255,.02) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(0,240,255,.02) 1px,transparent 1px);
+    background-size:60px 60px;
+    animation:gridShift 20s linear infinite;
+  }
+  @keyframes gridShift{0%{transform:translate(0,0)}100%{transform:translate(60px,60px)}}
+
+  body::after{
+    content:'';position:fixed;top:0;left:0;right:0;height:50vh;z-index:0;pointer-events:none;
+    background:radial-gradient(ellipse 80% 50% at 50% 0%,rgba(0,240,255,.04),transparent);
+  }
+
+  .container{
+    max-width:860px;margin:0 auto;padding:2rem 1.5rem 4rem;position:relative;z-index:1;
+  }
+
+  /* Header */
+  header{text-align:center;margin-bottom:2.5rem;position:relative}
+
+  .logo-icon{
+    display:inline-block;width:48px;height:48px;margin-bottom:.75rem;position:relative;
+  }
+  .logo-icon::before{
+    content:'';position:absolute;inset:4px;
+    border:2px solid var(--cyan);border-radius:50%;
+    animation:pulse-ring 3s ease-in-out infinite;
+  }
+  .logo-icon::after{
+    content:'▶';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-size:16px;color:var(--cyan);padding-left:3px;
+  }
+  @keyframes pulse-ring{0%,100%{opacity:.4;transform:scale(1)}50%{opacity:1;transform:scale(1.1)}}
+
+  h1{
+    font-family:'Orbitron',sans-serif;font-weight:700;
+    font-size:clamp(1.3rem,3vw,1.8rem);
+    letter-spacing:.12em;text-transform:uppercase;
+    background:linear-gradient(135deg,var(--cyan),var(--magenta));
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+    background-clip:text;
+    line-height:1.3;
+  }
+  .subtitle{
+    font-size:.95rem;color:var(--text-secondary);margin-top:.4rem;
+    font-weight:300;letter-spacing:.08em;
+  }
+
+  /* Scanline decoration */
+  .scanline{
+    height:1px;margin:2rem auto;max-width:400px;position:relative;
+    background:linear-gradient(90deg,transparent,var(--border-glow),transparent);
+  }
+  .scanline::after{
+    content:'';position:absolute;top:-1px;left:50%;transform:translateX(-50%);
+    width:80px;height:3px;
+    background:linear-gradient(90deg,transparent,var(--cyan),transparent);
+    filter:blur(1px);
+  }
+
+  /* Drop Zone */
+  .drop-zone{
+    border:2px dashed var(--border-glow);
+    border-radius:12px;
+    padding:3rem 2rem;
+    text-align:center;
+    cursor:pointer;
+    transition:all .3s ease;
+    position:relative;
+    overflow:hidden;
+    background:
+      linear-gradient(135deg,rgba(0,240,255,.02),rgba(255,0,170,.02));
+  }
+  .drop-zone::before{
+    content:'';position:absolute;inset:0;border-radius:12px;
+    background:linear-gradient(135deg,rgba(0,240,255,.05),transparent 50%,rgba(255,0,170,.05));
+    opacity:0;transition:opacity .3s;
+  }
+  .drop-zone:hover,.drop-zone.drag-over{
+    border-color:var(--cyan);
+    box-shadow:var(--glow-cyan);
+  }
+  .drop-zone:hover::before,.drop-zone.drag-over::before{opacity:1}
+
+  .drop-zone.drag-over{
+    transform:scale(1.01);
+    border-color:var(--magenta);
+    box-shadow:var(--glow-magenta);
+  }
+
+  .drop-icon{
+    font-size:3rem;margin-bottom:1rem;
+    filter:drop-shadow(0 0 10px rgba(0,240,255,.3));
+    transition:transform .3s;
+  }
+  .drop-zone:hover .drop-icon{transform:translateY(-4px)}
+
+  .drop-label{
+    font-family:'Orbitron',sans-serif;font-size:.85rem;
+    letter-spacing:.15em;text-transform:uppercase;
+    color:var(--text-secondary);margin-bottom:.4rem;
+  }
+  .drop-hint{font-size:.85rem;color:var(--text-dim);font-weight:300}
+
+  .file-input{display:none}
+
+  .file-loaded{
+    display:none;align-items:center;gap:.75rem;
+    justify-content:center;margin-top:1rem;
+    padding:.6rem 1.2rem;border-radius:8px;
+    background:rgba(0,255,136,.06);border:1px solid rgba(0,255,136,.15);
+  }
+  .file-loaded.show{display:flex}
+  .file-loaded .fname{
+    font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--green);
+  }
+  .file-loaded .fsize{font-size:.75rem;color:var(--text-dim)}
+
+  /* Settings Panel */
+  .settings-panel{
+    margin-top:1.5rem;
+    background:var(--bg-card);
+    border:1px solid var(--border);
+    border-radius:10px;
+    overflow:hidden;
+    display:none;
+  }
+  .settings-panel.show{display:block}
+
+  .settings-header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:.8rem 1.2rem;
+    background:rgba(0,240,255,.03);
+    border-bottom:1px solid var(--border);
+    cursor:pointer;user-select:none;
+  }
+  .settings-title{
+    font-family:'Orbitron',sans-serif;font-size:.7rem;
+    letter-spacing:.15em;text-transform:uppercase;color:var(--cyan-dim);
+  }
+  .settings-toggle{color:var(--text-dim);font-size:.8rem;transition:transform .3s}
+  .settings-toggle.open{transform:rotate(180deg)}
+
+  .settings-body{padding:1rem 1.2rem;display:none}
+  .settings-body.open{display:block}
+
+  .setting-group{margin-bottom:1rem}
+  .setting-group:last-child{margin-bottom:0}
+
+  .setting-label{
+    font-size:.75rem;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--text-secondary);margin-bottom:.5rem;display:block;
+  }
+
+  /* Offset controls */
+  .offset-controls{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center}
+  .offset-radio{display:none}
+  .offset-option{
+    display:inline-flex;align-items:center;gap:.4rem;
+    padding:.4rem .8rem;border-radius:6px;
+    border:1px solid var(--border);
+    font-size:.8rem;color:var(--text-secondary);
+    cursor:pointer;transition:all .2s;user-select:none;
+  }
+  .offset-option:hover{border-color:var(--border-glow)}
+  .offset-radio:checked+.offset-option{
+    border-color:var(--cyan);color:var(--cyan);
+    background:rgba(0,240,255,.06);
+    box-shadow:0 0 10px rgba(0,240,255,.08);
+  }
+  .offset-option .dot{
+    width:8px;height:8px;border-radius:50%;border:1.5px solid currentColor;
+    position:relative;
+  }
+  .offset-radio:checked+.offset-option .dot::after{
+    content:'';position:absolute;inset:2px;border-radius:50%;background:var(--cyan);
+  }
+
+  .custom-offset-input{
+    display:none;margin-top:.5rem;
+  }
+  .custom-offset-input.show{display:flex;align-items:center;gap:.5rem}
+  .custom-offset-input input{
+    width:120px;padding:.35rem .6rem;
+    background:var(--bg-deep);border:1px solid var(--border);border-radius:6px;
+    color:var(--text-primary);font-family:'JetBrains Mono',monospace;font-size:.8rem;
+    outline:none;transition:border-color .2s;
+  }
+  .custom-offset-input input:focus{border-color:var(--cyan)}
+  .custom-offset-input span{font-size:.75rem;color:var(--text-dim)}
+
+  /* Color filter */
+  .color-filters{display:flex;gap:.5rem;flex-wrap:wrap}
+  .color-chip{
+    display:inline-flex;align-items:center;gap:.35rem;
+    padding:.3rem .7rem;border-radius:6px;
+    border:1px solid var(--border);
+    font-size:.78rem;color:var(--text-secondary);
+    cursor:pointer;transition:all .2s;user-select:none;
+  }
+  .color-chip:hover{border-color:var(--border-glow)}
+  .color-chip.active{
+    border-color:var(--cyan);color:var(--text-primary);
+    background:rgba(0,240,255,.04);
+  }
+  .color-chip .swatch{
+    width:10px;height:10px;border-radius:3px;border:1px solid rgba(255,255,255,.15);
+  }
+  .color-chip.active .swatch{box-shadow:0 0 6px currentColor}
+
+  /* Output */
+  .output-section{
+    margin-top:1.5rem;display:none;
+    animation:fadeSlideUp .4s ease;
+  }
+  .output-section.show{display:block}
+
+  @keyframes fadeSlideUp{
+    from{opacity:0;transform:translateY(12px)}
+    to{opacity:1;transform:translateY(0)}
+  }
+
+  .output-header{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:.75rem;
+  }
+  .output-title{
+    font-family:'Orbitron',sans-serif;font-size:.7rem;
+    letter-spacing:.15em;text-transform:uppercase;color:var(--cyan-dim);
+  }
+  .marker-count{
+    font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--text-dim);
+  }
+
+  .output-box{
+    background:var(--bg-card);
+    border:1px solid var(--border);
+    border-radius:10px;
+    overflow:hidden;
+  }
+
+  .output-textarea{
+    width:100%;min-height:180px;max-height:400px;resize:vertical;
+    padding:1rem 1.2rem;
+    background:transparent;border:none;outline:none;
+    color:var(--text-primary);
+    font-family:'JetBrains Mono',monospace;
+    font-size:.82rem;line-height:1.8;
+    scrollbar-width:thin;
+    scrollbar-color:var(--border-glow) transparent;
+  }
+  .output-textarea::selection{background:rgba(0,240,255,.2)}
+
+  .output-actions{
+    display:flex;gap:.5rem;padding:.6rem 1rem;
+    border-top:1px solid var(--border);
+    background:rgba(0,240,255,.015);
+  }
+
+  .btn{
+    display:inline-flex;align-items:center;gap:.4rem;
+    padding:.45rem 1rem;border-radius:6px;
+    font-family:'Rajdhani',sans-serif;font-weight:600;font-size:.82rem;
+    letter-spacing:.06em;
+    cursor:pointer;transition:all .25s;border:1px solid;
+    text-transform:uppercase;
+  }
+
+  .btn-primary{
+    background:linear-gradient(135deg,rgba(0,240,255,.12),rgba(0,240,255,.06));
+    border-color:rgba(0,240,255,.3);color:var(--cyan);
+  }
+  .btn-primary:hover{
+    background:linear-gradient(135deg,rgba(0,240,255,.2),rgba(0,240,255,.1));
+    box-shadow:0 0 15px rgba(0,240,255,.12);
+    transform:translateY(-1px);
+  }
+  .btn-primary:active{transform:translateY(0)}
+
+  .btn-ghost{
+    background:transparent;border-color:var(--border);color:var(--text-secondary);
+  }
+  .btn-ghost:hover{border-color:var(--border-glow);color:var(--text-primary)}
+
+  .btn .icon{font-size:1rem;line-height:1}
+
+  .copied-toast{
+    position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(20px);
+    padding:.6rem 1.5rem;border-radius:8px;
+    background:rgba(0,255,136,.1);border:1px solid rgba(0,255,136,.25);
+    color:var(--green);
+    font-family:'Orbitron',sans-serif;font-size:.7rem;letter-spacing:.15em;
+    text-transform:uppercase;
+    opacity:0;transition:all .35s ease;z-index:100;
+    pointer-events:none;
+  }
+  .copied-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* Error */
+  .error-msg{
+    margin-top:1rem;padding:.7rem 1rem;border-radius:8px;
+    background:rgba(255,51,85,.06);border:1px solid rgba(255,51,85,.15);
+    color:var(--red);font-size:.82rem;display:none;
+  }
+  .error-msg.show{display:block}
+
+  /* Footer */
+  footer{
+    text-align:center;margin-top:3rem;
+    font-size:.72rem;color:var(--text-dim);letter-spacing:.05em;
+  }
+  footer a{color:var(--cyan-dim);text-decoration:none}
+  footer a:hover{color:var(--cyan)}
+
+  /* Preview table */
+  .preview-table{
+    margin-top:1rem;display:none;
+  }
+  .preview-table.show{display:block}
+  .preview-table table{
+    width:100%;border-collapse:collapse;
+    font-size:.78rem;
+  }
+  .preview-table th{
+    text-align:left;padding:.45rem .6rem;
+    font-family:'Orbitron',sans-serif;font-size:.65rem;
+    letter-spacing:.12em;text-transform:uppercase;
+    color:var(--text-dim);border-bottom:1px solid var(--border);
+  }
+  .preview-table td{
+    padding:.4rem .6rem;border-bottom:1px solid rgba(26,30,46,.5);
+    font-family:'JetBrains Mono',monospace;
+    color:var(--text-secondary);
+  }
+  .preview-table tr:hover td{color:var(--text-primary);background:rgba(0,240,255,.015)}
+  .preview-table .col-color .swatch-sm{
+    display:inline-block;width:8px;height:8px;border-radius:2px;
+    margin-right:.35rem;vertical-align:middle;
+  }
+
+  /* Responsive */
+  @media(max-width:600px){
+    .container{padding:1.5rem 1rem 3rem}
+    .drop-zone{padding:2rem 1rem}
+    .settings-body{padding:.8rem}
+    .offset-controls{flex-direction:column;align-items:stretch}
+    .offset-option{justify-content:center}
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="logo-icon"></div>
+    <h1>EDL → Timestamp</h1>
+    <p class="subtitle">DaVinci Resolve Markers to YouTube Chapters</p>
+  </header>
+
+  <div class="scanline"></div>
+
+  <!-- Drop Zone -->
+  <div class="drop-zone" id="dropZone">
+    <div class="drop-icon">📂</div>
+    <div class="drop-label">Drop EDL File Here</div>
+    <div class="drop-hint">or click to browse &nbsp;·&nbsp; .edl files supported</div>
+    <input type="file" class="file-input" id="fileInput" accept=".edl,.txt">
+  </div>
+
+  <div class="file-loaded" id="fileInfo">
+    <span>✓</span>
+    <span class="fname" id="fileName"></span>
+    <span class="fsize" id="fileSize"></span>
+  </div>
+
+  <!-- Error -->
+  <div class="error-msg" id="errorMsg"></div>
+
+  <!-- Settings -->
+  <div class="settings-panel" id="settingsPanel">
+    <div class="settings-header" id="settingsHeader">
+      <span class="settings-title">⚙ Settings</span>
+      <span class="settings-toggle open" id="settingsToggle">▼</span>
+    </div>
+    <div class="settings-body open" id="settingsBody">
+
+      <!-- Offset Mode -->
+      <div class="setting-group">
+        <span class="setting-label">Offset Correction</span>
+        <div class="offset-controls">
+          <input type="radio" name="offset" value="auto" id="offsetAuto" class="offset-radio" checked>
+          <label for="offsetAuto" class="offset-option"><span class="dot"></span> Auto (first marker = 0:00)</label>
+
+          <input type="radio" name="offset" value="timeline" id="offsetTimeline" class="offset-radio">
+          <label for="offsetTimeline" class="offset-option"><span class="dot"></span> Timeline 01:00:00:00 start</label>
+
+          <input type="radio" name="offset" value="custom" id="offsetCustom" class="offset-radio">
+          <label for="offsetCustom" class="offset-option"><span class="dot"></span> Custom offset</label>
+        </div>
+        <div class="custom-offset-input" id="customOffsetWrap">
+          <input type="text" id="customOffsetVal" placeholder="HH:MM:SS:FF" value="01:00:00:00">
+          <span>format: HH:MM:SS:FF</span>
+        </div>
+      </div>
+
+      <!-- Color Filter -->
+      <div class="setting-group">
+        <span class="setting-label">Color Filter</span>
+        <div class="color-filters" id="colorFilters">
+          <!-- dynamically populated -->
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Output -->
+  <div class="output-section" id="outputSection">
+    <div class="output-header">
+      <span class="output-title">▸ YouTube Timestamps</span>
+      <span class="marker-count" id="markerCount"></span>
+    </div>
+    <div class="output-box">
+      <textarea class="output-textarea" id="outputText" readonly></textarea>
+      <div class="output-actions">
+        <button class="btn btn-primary" id="copyBtn"><span class="icon">📋</span> Copy</button>
+        <button class="btn btn-ghost" id="resetBtn"><span class="icon">↺</span> Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Preview Table -->
+  <div class="preview-table" id="previewTable">
+    <table>
+      <thead><tr><th>TC</th><th>Color</th><th>Marker Name</th></tr></thead>
+      <tbody id="previewBody"></tbody>
+    </table>
+  </div>
+
+  <footer>
+    <p>Built for streamers & editors &nbsp;·&nbsp; Supports DaVinci Resolve EDL marker exports</p>
+  </footer>
+</div>
+
+<div class="copied-toast" id="toast">✓ Copied to clipboard</div>
+
+<script>
+(() => {
+  // ---------- State ----------
+  let rawMarkers = []; // {tc:'01:00:05:00', name:'...', color:'Blue'}
+  let detectedColors = new Set();
+  let activeColors = new Set(); // empty = all
+
+  // ---------- DOM ----------
+  const dropZone    = document.getElementById('dropZone');
+  const fileInput   = document.getElementById('fileInput');
+  const fileInfo    = document.getElementById('fileInfo');
+  const fileName    = document.getElementById('fileName');
+  const fileSize    = document.getElementById('fileSize');
+  const errorMsg    = document.getElementById('errorMsg');
+  const settingsPanel = document.getElementById('settingsPanel');
+  const settingsHeader = document.getElementById('settingsHeader');
+  const settingsToggle = document.getElementById('settingsToggle');
+  const settingsBody = document.getElementById('settingsBody');
+  const colorFilters = document.getElementById('colorFilters');
+  const outputSection = document.getElementById('outputSection');
+  const outputText  = document.getElementById('outputText');
+  const markerCount = document.getElementById('markerCount');
+  const copyBtn     = document.getElementById('copyBtn');
+  const resetBtn    = document.getElementById('resetBtn');
+  const toast       = document.getElementById('toast');
+  const previewTable = document.getElementById('previewTable');
+  const previewBody = document.getElementById('previewBody');
+  const customOffsetWrap = document.getElementById('customOffsetWrap');
+  const customOffsetVal  = document.getElementById('customOffsetVal');
+
+  // ---------- Color Map ----------
+  const colorMap = {
+    Blue:'#4488ff', Red:'#ff3355', Green:'#00cc66', Cyan:'#00ddee',
+    Magenta:'#dd44cc', Yellow:'#ddcc00', Orange:'#ff8800', Pink:'#ff66aa',
+    Purple:'#9944ff', Fuchsia:'#ff00ff', Rose:'#ff4488', Lavender:'#aa88ff',
+    Sky:'#44bbff', Mint:'#44ddaa', Lemon:'#ccdd44', Sand:'#ccaa66',
+    Cocoa:'#886644', Cream:'#eeddbb', White:'#e0e0e0', Black:'#333',
+  };
+
+  // ---------- Helpers ----------
+  function tcToSeconds(tc) {
+    // HH:MM:SS:FF  (assume 24fps if not specified)
+    const parts = tc.split(':').map(Number);
+    if (parts.length === 4) {
+      const [h, m, s, f] = parts;
+      return h * 3600 + m * 60 + s + f / 24; // frames -> fractional sec
+    }
+    if (parts.length === 3) {
+      const [h, m, s] = parts;
+      return h * 3600 + m * 60 + s;
+    }
+    return 0;
+  }
+
+  function secondsToTimestamp(totalSec) {
+    totalSec = Math.max(0, Math.round(totalSec));
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    const mm = String(m).padStart(2, '0');
+    const ss = String(s).padStart(2, '0');
+    if (h > 0) return `${h}:${mm}:${ss}`;
+    return `${m}:${ss}`;
+  }
+
+  function showError(msg) {
+    errorMsg.textContent = msg;
+    errorMsg.classList.add('show');
+  }
+  function hideError() { errorMsg.classList.remove('show'); }
+
+  // ---------- Parse EDL ----------
+  function parseEDL(text) {
+    const markers = [];
+    const lines = text.split(/\r?\n/);
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+
+      // Match edit line: captures the first timecode
+      // Pattern: NNN  NNN  V  C  TC1 TC2 TC3 TC4
+      const editMatch = line.match(
+        /^\d+\s+\S+\s+\S+\s+\S+\s+(\d{2}:\d{2}:\d{2}:\d{2})/
+      );
+      if (editMatch) {
+        const tc = editMatch[1];
+
+        // Look ahead for metadata line(s)
+        let markerName = '';
+        let markerColor = '';
+        for (let j = i + 1; j < lines.length && j <= i + 5; j++) {
+          const metaLine = lines[j];
+          if (!metaLine.trim()) continue;
+          // If we hit a new edit line, break
+          if (/^\d+\s+\S+\s+\S+\s+\S+\s+\d{2}:/.test(metaLine.trim())) break;
+
+          // Extract color: |C:ResolveColorBlue  or |C:Blue
+          const colorMatch = metaLine.match(/\|C:(?:ResolveColor)?(\w+)/i);
+          if (colorMatch) markerColor = colorMatch[1];
+
+          // Extract marker name: |M:Name
+          const nameMatch = metaLine.match(/\|M:(.+?)(?:\s*\||\s*$)/);
+          if (nameMatch) markerName = nameMatch[1].trim();
+        }
+
+        if (markerName) {
+          markers.push({ tc, name: markerName, color: markerColor || 'Unknown' });
+        }
+      }
+    }
+
+    // Sort by timecode
+    markers.sort((a, b) => tcToSeconds(a.tc) - tcToSeconds(b.tc));
+    return markers;
+  }
+
+  // ---------- Compute Offset ----------
+  function getOffsetSeconds() {
+    const mode = document.querySelector('input[name="offset"]:checked').value;
+    if (mode === 'auto' && rawMarkers.length > 0) {
+      return tcToSeconds(rawMarkers[0].tc);
+    }
+    if (mode === 'timeline') {
+      return tcToSeconds('01:00:00:00');
+    }
+    if (mode === 'custom') {
+      return tcToSeconds(customOffsetVal.value || '01:00:00:00');
+    }
+    return 0;
+  }
+
+  // ---------- Render Output ----------
+  function renderOutput() {
+    if (rawMarkers.length === 0) return;
+
+    const offset = getOffsetSeconds();
+    const filtered = rawMarkers.filter(m =>
+      activeColors.size === 0 || activeColors.has(m.color)
+    );
+
+    const lines = filtered.map(m => {
+      const sec = tcToSeconds(m.tc) - offset;
+      return `${secondsToTimestamp(sec)} ${m.name}`;
+    });
+
+    outputText.value = lines.join('\n');
+    markerCount.textContent = `${filtered.length} marker${filtered.length !== 1 ? 's' : ''}`;
+
+    outputSection.classList.add('show');
+
+    // Preview table
+    previewBody.innerHTML = '';
+    filtered.forEach(m => {
+      const sec = tcToSeconds(m.tc) - offset;
+      const tr = document.createElement('tr');
+      const swatchColor = colorMap[m.color] || '#888';
+      tr.innerHTML = `
+        <td>${secondsToTimestamp(sec)}</td>
+        <td class="col-color"><span class="swatch-sm" style="background:${swatchColor}"></span>${m.color}</td>
+        <td>${m.name}</td>
+      `;
+      previewBody.appendChild(tr);
+    });
+    previewTable.classList.add('show');
+  }
+
+  // ---------- Build Color Chips ----------
+  function buildColorChips() {
+    colorFilters.innerHTML = '';
+    if (detectedColors.size === 0) {
+      colorFilters.innerHTML = '<span style="font-size:.78rem;color:var(--text-dim)">No color info detected</span>';
+      return;
+    }
+    // "All" chip
+    const allChip = document.createElement('span');
+    allChip.className = 'color-chip active';
+    allChip.dataset.color = '__all__';
+    allChip.innerHTML = 'All';
+    allChip.addEventListener('click', () => {
+      activeColors.clear();
+      document.querySelectorAll('.color-chip').forEach(c => c.classList.remove('active'));
+      allChip.classList.add('active');
+      renderOutput();
+    });
+    colorFilters.appendChild(allChip);
+
+    detectedColors.forEach(color => {
+      const chip = document.createElement('span');
+      chip.className = 'color-chip';
+      chip.dataset.color = color;
+      const bg = colorMap[color] || '#888';
+      chip.innerHTML = `<span class="swatch" style="background:${bg}"></span>${color}`;
+      chip.addEventListener('click', () => {
+        // Toggle
+        if (activeColors.has(color)) {
+          activeColors.delete(color);
+          chip.classList.remove('active');
+        } else {
+          activeColors.add(color);
+          chip.classList.add('active');
+        }
+        // Deactivate "All" if any specific selected
+        const allEl = colorFilters.querySelector('[data-color="__all__"]');
+        if (activeColors.size > 0) {
+          allEl.classList.remove('active');
+        } else {
+          allEl.classList.add('active');
+        }
+        renderOutput();
+      });
+      colorFilters.appendChild(chip);
+    });
+  }
+
+  // ---------- Process File ----------
+  function processFile(file) {
+    hideError();
+    if (!file) return;
+    if (!file.name.match(/\.(edl|txt)$/i)) {
+      showError('Please select a valid .edl file.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target.result;
+      rawMarkers = parseEDL(text);
+
+      if (rawMarkers.length === 0) {
+        showError('No markers found in this EDL file. Make sure it contains |M: marker data.');
+        return;
+      }
+
+      // File info
+      fileName.textContent = file.name;
+      fileSize.textContent = `(${(file.size / 1024).toFixed(1)} KB)`;
+      fileInfo.classList.add('show');
+
+      // Detect colors
+      detectedColors.clear();
+      activeColors.clear();
+      rawMarkers.forEach(m => {
+        if (m.color && m.color !== 'Unknown') detectedColors.add(m.color);
+      });
+
+      // Show settings
+      settingsPanel.classList.add('show');
+      buildColorChips();
+      renderOutput();
+    };
+    reader.onerror = () => showError('Failed to read file.');
+    reader.readAsText(file);
+  }
+
+  // ---------- Events ----------
+
+  // Drag & Drop
+  dropZone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => processFile(e.target.files[0]));
+
+  dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    if (e.dataTransfer.files.length) processFile(e.dataTransfer.files[0]);
+  });
+
+  // Settings toggle
+  settingsHeader.addEventListener('click', () => {
+    settingsBody.classList.toggle('open');
+    settingsToggle.classList.toggle('open');
+  });
+
+  // Offset mode change
+  document.querySelectorAll('input[name="offset"]').forEach(r => {
+    r.addEventListener('change', () => {
+      customOffsetWrap.classList.toggle('show', r.value === 'custom' && r.checked);
+      renderOutput();
+    });
+  });
+  customOffsetVal.addEventListener('input', () => renderOutput());
+
+  // Copy
+  copyBtn.addEventListener('click', () => {
+    navigator.clipboard.writeText(outputText.value).then(() => {
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
+    }).catch(() => {
+      outputText.select();
+      document.execCommand('copy');
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
+    });
+  });
+
+  // Reset
+  resetBtn.addEventListener('click', () => {
+    rawMarkers = [];
+    detectedColors.clear();
+    activeColors.clear();
+    fileInput.value = '';
+    fileInfo.classList.remove('show');
+    settingsPanel.classList.remove('show');
+    outputSection.classList.remove('show');
+    previewTable.classList.remove('show');
+    hideError();
+  });
+
+})();
+</script>
+</body>
+</html>
